@@ -7,11 +7,11 @@ import (
 
 var ShardCount = 32
 
-// A "thread" safe map of type string:Anything.
+// ConcurrentMap A "thread" safe map of type string:Anything.
 // To avoid lock bottlenecks this map is dived to several (ShardCount) map shards.
 type ConcurrentMap []*ConcurrentMapShared
 
-// A "thread" safe string to anything map.
+// ConcurrentMapShared A "thread" safe string to anything map.
 type ConcurrentMapShared struct {
 	items map[string]interface{}
 
@@ -19,7 +19,7 @@ type ConcurrentMapShared struct {
 	sync.RWMutex
 }
 
-// Creates a new concurrent map.
+// New Creates a new concurrent map.
 func New() ConcurrentMap {
 	m := make(ConcurrentMap, ShardCount)
 	for i := 0; i < ShardCount; i++ {
@@ -43,7 +43,7 @@ func (m ConcurrentMap) MSet(data map[string]interface{}) {
 	}
 }
 
-// Sets the given value under the specified key.
+// Set Sets the given value under the specified key.
 func (m ConcurrentMap) Set(key string, value interface{}) {
 	// Get map shard.
 	shard := m.GetShard(key)
@@ -52,13 +52,13 @@ func (m ConcurrentMap) Set(key string, value interface{}) {
 	shard.Unlock()
 }
 
-// Callback to return new element to be inserted into the map
+// UpsertCb Callback to return new element to be inserted into the map
 // It is called while lock is held, therefore it MUST NOT
 // try to access other keys in same map, as it can lead to deadlock since
 // Go sync.RWLock is not reentrant
 type UpsertCb func(exist bool, valueInMap interface{}, newValue interface{}) interface{}
 
-// Insert or Update - updates existing element or inserts a new one using UpsertCb
+// Upsert Insert or Update - updates existing element or inserts a new one using UpsertCb
 func (m ConcurrentMap) Upsert(key string, value interface{}, cb UpsertCb) (res interface{}) {
 	shard := m.GetShard(key)
 	shard.Lock()
@@ -70,7 +70,7 @@ func (m ConcurrentMap) Upsert(key string, value interface{}, cb UpsertCb) (res i
 	return res
 }
 
-// Sets the given value under the specified key if no value was associated with it.
+// SetIfAbsent Sets the given value under the specified key if no value was associated with it.
 func (m ConcurrentMap) SetIfAbsent(key string, value interface{}) bool {
 	// Get map shard.
 	shard := m.GetShard(key)
@@ -96,7 +96,7 @@ func (m ConcurrentMap) Get(key string) (interface{}, bool) {
 	return val, ok
 }
 
-// Get retrieves an element from map under given key.
+// GetValue Get retrieves an element from map under given key.
 func (m ConcurrentMap) GetValue(key string) (val interface{}) {
 	val, _ = m.Get(key)
 	return
@@ -115,7 +115,7 @@ func (m ConcurrentMap) Count() int {
 	return count
 }
 
-// Looks up an item under specified key
+// Has Looks up an item under specified key
 func (m ConcurrentMap) Has(key string) bool {
 	// Get shard
 	shard := m.GetShard(key)
@@ -174,7 +174,7 @@ func (m ConcurrentMap) IsEmpty() bool {
 	return m.Count() == 0
 }
 
-// Used by the Iter & IterBuffered functions to wrap two variables together over a channel,
+// Tuple Used by the Iter & IterBuffered functions to wrap two variables together over a channel,
 type Tuple struct {
 	Key string
 	Val interface{}
@@ -256,13 +256,13 @@ func (m ConcurrentMap) Items() map[string]interface{} {
 	return tmp
 }
 
-// Iterator callback,called for every key,value found in
+// IterCb Iterator callback,called for every key,value found in
 // maps. RLock is held for all calls for a given shard
 // therefore callback sess consistent view of a shard,
 // but not across the shards
 type IterCb func(key string, v interface{})
 
-// Callback based iterator, cheapest way to read
+// IterCb Callback based iterator, cheapest way to read
 // all elements in a map.
 func (m ConcurrentMap) IterCb(fn IterCb) {
 	for idx := range m {
@@ -308,7 +308,7 @@ func (m ConcurrentMap) Keys() []string {
 	return keys
 }
 
-// Reviles ConcurrentMap "private" variables to json marshal.
+// MarshalJSON Reviles ConcurrentMap "private" variables to json marshal.
 func (m ConcurrentMap) MarshalJSON() ([]byte, error) {
 	// Create a temporary map, which will hold all item spread across shards.
 	tmp := make(map[string]interface{})

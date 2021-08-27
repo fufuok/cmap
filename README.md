@@ -5,7 +5,28 @@
 ## 改动
 
 - 增加 `m.GetValue()` 用于单纯的取值
-- 增加与 `syncMap` 对比基准测试: 读, 读多写少, 写
+- 增加与 `syncMap`, `xsync.NewMap()` 对比基准测试: 读, 读多写少, 写
+
+## 使用场景
+
+- `xsync.NewMap()` 适合读多写少的场景, 性能强劲: [xsync](https://github.com/puzpuzpuz/xsync)
+- `cmap.New()` 适合读写均衡或写多读少的场景
+
+```go
+go version go1.17 linux/amd64
+cpu: Intel(R) Xeon(R) CPU E3-1230 V2 @ 3.30GHz
+BenchmarkReadXsync-8            81850363                14.81 ns/op            0 B/op          0 allocs/op
+BenchmarkReadCMAP-8             48727599                25.17 ns/op            0 B/op          0 allocs/op
+BenchmarkReadSyncMap-8          35928573                33.19 ns/op            0 B/op          0 allocs/op
+BenchmarkReadWXsync-8           74723988                15.47 ns/op            0 B/op          0 allocs/op
+BenchmarkReadWCMAP-8            46075694                26.05 ns/op            0 B/op          0 allocs/op
+BenchmarkReadWSyncMap-8         36574660                33.66 ns/op            0 B/op          0 allocs/op
+BenchmarkWriteXsync-8            8249457               145.0 ns/op            48 B/op          3 allocs/op
+BenchmarkWriteCMAP-8            14182921                87.27 ns/op           16 B/op          1 allocs/op
+BenchmarkWriteSyncMap-8          8048661               153.5 ns/op            32 B/op          2 allocs/op
+```
+
+------ 
 
 ```go
 BenchmarkReadCMAP-8       	38719293	        29.78 ns/op	       0 B/op	       0 allocs/op
