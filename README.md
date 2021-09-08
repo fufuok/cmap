@@ -2,10 +2,12 @@
 
 *forked from orcaman/concurrent-map*
 
+**最新: 总体看, 直接用 `xsync.NewMap()` 更佳, 见下面 2 个测试**, 或直接用原生 `sync.Map` 性能也很好了
+
 ## 改动
 
 - 增加 `m.GetValue()` 用于单纯的取值
-- 增加与 `syncMap`, `xsync.NewMap()` 对比基准测试: 读, 读多写少, 写
+- 增加与 `sync.Map`, `xsync.NewMap()` 对比基准测试: 读, 读多写少, 写
 
 ## 使用场景
 
@@ -13,42 +15,80 @@
 - `cmap.New()` 适合读写均衡或写多读少的场景
 
 ```go
+go test -bench=. -benchtime=2s -count=3
 go version go1.17 linux/amd64
-cpu: Intel(R) Xeon(R) CPU E3-1230 V2 @ 3.30GHz
-BenchmarkReadXsync-8            81850363                14.81 ns/op            0 B/op          0 allocs/op
-BenchmarkReadCMAP-8             48727599                25.17 ns/op            0 B/op          0 allocs/op
-BenchmarkReadSyncMap-8          35928573                33.19 ns/op            0 B/op          0 allocs/op
-BenchmarkReadWXsync-8           74723988                15.47 ns/op            0 B/op          0 allocs/op
-BenchmarkReadWCMAP-8            46075694                26.05 ns/op            0 B/op          0 allocs/op
-BenchmarkReadWSyncMap-8         36574660                33.66 ns/op            0 B/op          0 allocs/op
-BenchmarkWriteXsync-8            8249457               145.0 ns/op            48 B/op          3 allocs/op
-BenchmarkWriteCMAP-8            14182921                87.27 ns/op           16 B/op          1 allocs/op
-BenchmarkWriteSyncMap-8          8048661               153.5 ns/op            32 B/op          2 allocs/op
+cpu: Intel(R) Xeon(R) Gold 6161 CPU @ 2.20GHz
+BenchmarkReadXsync-8                    169672880               13.61 ns/op            0 B/op          0 allocs/op
+BenchmarkReadXsync-8                    174356899               14.48 ns/op            0 B/op          0 allocs/op
+BenchmarkReadXsync-8                    172243994               14.09 ns/op            0 B/op          0 allocs/op
+BenchmarkReadCMAP-8                     77701599                30.55 ns/op            0 B/op          0 allocs/op
+BenchmarkReadCMAP-8                     80629885                28.51 ns/op            0 B/op          0 allocs/op
+BenchmarkReadCMAP-8                     81494463                29.21 ns/op            0 B/op          0 allocs/op
+BenchmarkReadSyncMap-8                  70097936                30.65 ns/op            0 B/op          0 allocs/op
+BenchmarkReadSyncMap-8                  74468286                30.22 ns/op            0 B/op          0 allocs/op
+BenchmarkReadSyncMap-8                  79496142                31.42 ns/op            0 B/op          0 allocs/op
+BenchmarkReadWXsync-8                   158263004               15.08 ns/op            0 B/op          0 allocs/op
+BenchmarkReadWXsync-8                   161351006               15.17 ns/op            0 B/op          0 allocs/op
+BenchmarkReadWXsync-8                   159669409               15.07 ns/op            0 B/op          0 allocs/op
+BenchmarkReadWCMAP-8                    81286011                29.80 ns/op            0 B/op          0 allocs/op
+BenchmarkReadWCMAP-8                    80469480                29.93 ns/op            0 B/op          0 allocs/op
+BenchmarkReadWCMAP-8                    81316665                29.54 ns/op            0 B/op          0 allocs/op
+BenchmarkReadWSyncMap-8                 74813577                31.67 ns/op            0 B/op          0 allocs/op
+BenchmarkReadWSyncMap-8                 77983555                32.17 ns/op            0 B/op          0 allocs/op
+BenchmarkReadWSyncMap-8                 77657517                32.46 ns/op            0 B/op          0 allocs/op
+BenchmarkWriteXsync-8                   15874245               144.1 ns/op            48 B/op          3 allocs/op
+BenchmarkWriteXsync-8                   16998176               142.0 ns/op            48 B/op          3 allocs/op
+BenchmarkWriteXsync-8                   17554891               150.7 ns/op            48 B/op          3 allocs/op
+BenchmarkWriteCMAP-8                    27520351                94.70 ns/op           16 B/op          1 allocs/op
+BenchmarkWriteCMAP-8                    27236055                91.31 ns/op           16 B/op          1 allocs/op
+BenchmarkWriteCMAP-8                    26136130                91.94 ns/op           16 B/op          1 allocs/op
+BenchmarkWriteSyncMap-8                 16701786               164.8 ns/op            32 B/op          2 allocs/op
+BenchmarkWriteSyncMap-8                 16115397               152.2 ns/op            32 B/op          2 allocs/op
+BenchmarkWriteSyncMap-8                 16425662               150.6 ns/op            32 B/op          2 allocs/op
 ```
 
------- 
+------
 
 ```go
-BenchmarkReadCMAP-8       	38719293	        29.78 ns/op	       0 B/op	       0 allocs/op
-BenchmarkReadCMAP-8       	43828090	        30.56 ns/op	       0 B/op	       0 allocs/op
-BenchmarkReadCMAP-8       	41043460	        33.29 ns/op	       0 B/op	       0 allocs/op
-BenchmarkReadSyncMap-8    	25484545	        47.88 ns/op	       0 B/op	       0 allocs/op
-BenchmarkReadSyncMap-8    	25557362	        48.94 ns/op	       0 B/op	       0 allocs/op
-BenchmarkReadSyncMap-8    	25332060	        51.29 ns/op	       0 B/op	       0 allocs/op
-
-BenchmarkReadWCMAP-8      	34850794	        32.29 ns/op	       0 B/op	       0 allocs/op
-BenchmarkReadWCMAP-8      	42130688	        29.99 ns/op	       0 B/op	       0 allocs/op
-BenchmarkReadWCMAP-8      	42912928	        33.02 ns/op	       0 B/op	       0 allocs/op
-BenchmarkReadWSyncMap-8   	20900533	        68.61 ns/op	       0 B/op	       0 allocs/op
-BenchmarkReadWSyncMap-8   	23382936	        53.31 ns/op	       0 B/op	       0 allocs/op
-BenchmarkReadWSyncMap-8   	25875340	        51.84 ns/op	       0 B/op	       0 allocs/op
-
-BenchmarkWriteCMAP-8      	11646267	       105.4 ns/op	      16 B/op	       1 allocs/op
-BenchmarkWriteCMAP-8      	12547090	       102.8 ns/op	      16 B/op	       1 allocs/op
-BenchmarkWriteCMAP-8      	11238153	       101.1 ns/op	      16 B/op	       1 allocs/op
-BenchmarkWriteSyncMap-8   	 6279337	       214.2 ns/op	      32 B/op	       2 allocs/op
-BenchmarkWriteSyncMap-8   	 6596197	       193.4 ns/op	      32 B/op	       2 allocs/op
-BenchmarkWriteSyncMap-8   	 6556354	       205.0 ns/op	      32 B/op	       2 allocs/op
+go test -bench=^BenchmarkMap -benchtime=2s
+go version go1.17 linux/amd64
+cpu: Intel(R) Xeon(R) Gold 6161 CPU @ 2.20GHz
+BenchmarkMap_NoWarmUp/99%-reads-8       56163492                52.55 ns/op
+BenchmarkMap_NoWarmUp/90%-reads-8       35315628                73.24 ns/op
+BenchmarkMap_NoWarmUp/75%-reads-8       26161597                81.62 ns/op
+BenchmarkMap_NoWarmUp/50%-reads-8       24746589               106.9 ns/op
+BenchmarkMap_NoWarmUp/0%-reads-8        18289854               141.3 ns/op
+BenchmarkMapCMAP_NoWarmUp/99%-reads-8           28187413                93.63 ns/op
+BenchmarkMapCMAP_NoWarmUp/90%-reads-8           13235156               202.7 ns/op
+BenchmarkMapCMAP_NoWarmUp/75%-reads-8            9603061               262.1 ns/op
+BenchmarkMapCMAP_NoWarmUp/50%-reads-8            8177826               307.7 ns/op
+BenchmarkMapCMAP_NoWarmUp/0%-reads-8            15768786               147.7 ns/op
+BenchmarkMapStandard_NoWarmUp/99%-reads-8        4889781               649.5 ns/op
+BenchmarkMapStandard_NoWarmUp/90%-reads-8        2881819               848.7 ns/op
+BenchmarkMapStandard_NoWarmUp/75%-reads-8        2562492               959.4 ns/op
+BenchmarkMapStandard_NoWarmUp/50%-reads-8        2688487               929.0 ns/op
+BenchmarkMapStandard_NoWarmUp/0%-reads-8         2304576              1045 ns/op
+BenchmarkMap_WarmUp/100%-reads-8                26866794                92.23 ns/op
+BenchmarkMap_WarmUp/99%-reads-8                 26107092                88.13 ns/op
+BenchmarkMap_WarmUp/90%-reads-8                 29198966                80.35 ns/op
+BenchmarkMap_WarmUp/75%-reads-8                 28485249                80.61 ns/op
+BenchmarkMap_WarmUp/50%-reads-8                 27306980                83.98 ns/op
+BenchmarkMap_WarmUp/0%-reads-8                  21844280               113.1 ns/op
+BenchmarkMapCMAP_WarmUp/100%-reads-8            23667356                95.94 ns/op
+BenchmarkMapCMAP_WarmUp/99%-reads-8             17253115               138.5 ns/op
+BenchmarkMapCMAP_WarmUp/90%-reads-8              9708538               231.9 ns/op
+BenchmarkMapCMAP_WarmUp/75%-reads-8              8166346               280.1 ns/op
+BenchmarkMapCMAP_WarmUp/50%-reads-8              7348316               315.0 ns/op
+BenchmarkMapCMAP_WarmUp/0%-reads-8              15754057               129.3 ns/op
+BenchmarkMapStandard_WarmUp/100%-reads-8        10278343               197.9 ns/op
+BenchmarkMapStandard_WarmUp/99%-reads-8          7406224               272.3 ns/op
+BenchmarkMapStandard_WarmUp/90%-reads-8          7389327               273.5 ns/op
+BenchmarkMapStandard_WarmUp/75%-reads-8          4945608               436.3 ns/op
+BenchmarkMapStandard_WarmUp/50%-reads-8          3071937               792.5 ns/op
+BenchmarkMapStandard_WarmUp/0%-reads-8           2321718               903.5 ns/op
+BenchmarkMapRange-8                                  134          19187676 ns/op
+BenchmarkMapRangeCMAP-8                               32          63195121 ns/op
+BenchmarkMapRangeStandard-8                          169          14674270 ns/op
 ```
 
 # concurrent map [![Build Status](https://travis-ci.com/orcaman/concurrent-map.svg?branch=master)](https://travis-ci.com/orcaman/concurrent-map)
