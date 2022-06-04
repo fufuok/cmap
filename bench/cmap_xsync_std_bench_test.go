@@ -11,7 +11,7 @@ import (
 )
 
 func BenchmarkReadXsync(b *testing.B) {
-	var xm = xsync.NewMap()
+	var xm = xsync.NewMapOf[string]()
 	xm.Store("Fufu", strings.Repeat("string", 10000))
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -21,7 +21,7 @@ func BenchmarkReadXsync(b *testing.B) {
 }
 
 func BenchmarkReadCMAP(b *testing.B) {
-	var cm = cmap.New()
+	var cm = cmap.New[string]()
 	cm.Set("Fufu", strings.Repeat("string", 10000))
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -41,7 +41,7 @@ func BenchmarkReadSyncMap(b *testing.B) {
 }
 
 func BenchmarkReadWXsync(b *testing.B) {
-	var xm = xsync.NewMap()
+	var xm = xsync.NewMapOf[string]()
 	v := strings.Repeat("string", 10000)
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -54,7 +54,7 @@ func BenchmarkReadWXsync(b *testing.B) {
 }
 
 func BenchmarkReadWCMAP(b *testing.B) {
-	var cm = cmap.New()
+	var cm = cmap.New[string]()
 	v := strings.Repeat("string", 10000)
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -80,7 +80,7 @@ func BenchmarkReadWSyncMap(b *testing.B) {
 }
 
 func BenchmarkWriteXsync(b *testing.B) {
-	var xm = xsync.NewMap()
+	var xm = xsync.NewMapOf[string]()
 	v := strings.Repeat("string", 10000)
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -90,7 +90,7 @@ func BenchmarkWriteXsync(b *testing.B) {
 }
 
 func BenchmarkWriteCMAP(b *testing.B) {
-	var cm = cmap.New()
+	var cm = cmap.New[string]()
 	v := strings.Repeat("string", 10000)
 	b.ReportAllocs()
 	b.ResetTimer()

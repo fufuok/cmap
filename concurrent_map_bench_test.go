@@ -2,13 +2,12 @@ package cmap
 
 import (
 	"strconv"
-	"strings"
 	"sync"
 	"testing"
 )
 
 func BenchmarkItems(b *testing.B) {
-	m := New()
+	m := New[Animal]()
 
 	// Insert 100 elements.
 	for i := 0; i < 10000; i++ {
@@ -20,7 +19,7 @@ func BenchmarkItems(b *testing.B) {
 }
 
 func BenchmarkMarshalJson(b *testing.B) {
-	m := New()
+	m := New[Animal]()
 
 	// Insert 100 elements.
 	for i := 0; i < 10000; i++ {
@@ -41,7 +40,7 @@ func BenchmarkStrconv(b *testing.B) {
 }
 
 func BenchmarkSingleInsertAbsent(b *testing.B) {
-	m := New()
+	m := New[string]()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.Set(strconv.Itoa(i), "value")
@@ -57,7 +56,7 @@ func BenchmarkSingleInsertAbsentSyncMap(b *testing.B) {
 }
 
 func BenchmarkSingleInsertPresent(b *testing.B) {
-	m := New()
+	m := New[string]()
 	m.Set("key", "value")
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -75,7 +74,7 @@ func BenchmarkSingleInsertPresentSyncMap(b *testing.B) {
 }
 
 func benchmarkMultiInsertDifferent(b *testing.B) {
-	m := New()
+	m := New[string]()
 	finished := make(chan struct{}, b.N)
 	_, set := GetSet(m, finished)
 	b.ResetTimer()
@@ -90,7 +89,7 @@ func benchmarkMultiInsertDifferent(b *testing.B) {
 func BenchmarkMultiInsertDifferentSyncMap(b *testing.B) {
 	var m sync.Map
 	finished := make(chan struct{}, b.N)
-	_, set := GetSetSyncMap(&m, finished)
+	_, set := GetSetSyncMap[string](&m, finished)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -115,7 +114,7 @@ func BenchmarkMultiInsertDifferent_256_Shard(b *testing.B) {
 }
 
 func BenchmarkMultiInsertSame(b *testing.B) {
-	m := New()
+	m := New[string]()
 	finished := make(chan struct{}, b.N)
 	_, set := GetSet(m, finished)
 	m.Set("key", "value")
@@ -131,7 +130,7 @@ func BenchmarkMultiInsertSame(b *testing.B) {
 func BenchmarkMultiInsertSameSyncMap(b *testing.B) {
 	var m sync.Map
 	finished := make(chan struct{}, b.N)
-	_, set := GetSetSyncMap(&m, finished)
+	_, set := GetSetSyncMap[string](&m, finished)
 	m.Store("key", "value")
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -143,7 +142,7 @@ func BenchmarkMultiInsertSameSyncMap(b *testing.B) {
 }
 
 func BenchmarkMultiGetSame(b *testing.B) {
-	m := New()
+	m := New[string]()
 	finished := make(chan struct{}, b.N)
 	get, _ := GetSet(m, finished)
 	m.Set("key", "value")
@@ -159,7 +158,7 @@ func BenchmarkMultiGetSame(b *testing.B) {
 func BenchmarkMultiGetSameSyncMap(b *testing.B) {
 	var m sync.Map
 	finished := make(chan struct{}, b.N)
-	get, _ := GetSetSyncMap(&m, finished)
+	get, _ := GetSetSyncMap[string](&m, finished)
 	m.Store("key", "value")
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -171,7 +170,7 @@ func BenchmarkMultiGetSameSyncMap(b *testing.B) {
 }
 
 func benchmarkMultiGetSetDifferent(b *testing.B) {
-	m := New()
+	m := New[string]()
 	finished := make(chan struct{}, 2*b.N)
 	get, set := GetSet(m, finished)
 	m.Set("-1", "value")
@@ -188,7 +187,7 @@ func benchmarkMultiGetSetDifferent(b *testing.B) {
 func BenchmarkMultiGetSetDifferentSyncMap(b *testing.B) {
 	var m sync.Map
 	finished := make(chan struct{}, 2*b.N)
-	get, set := GetSetSyncMap(&m, finished)
+	get, set := GetSetSyncMap[string](&m, finished)
 	m.Store("-1", "value")
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -214,7 +213,7 @@ func BenchmarkMultiGetSetDifferent_256_Shard(b *testing.B) {
 }
 
 func benchmarkMultiGetSetBlock(b *testing.B) {
-	m := New()
+	m := New[string]()
 	finished := make(chan struct{}, 2*b.N)
 	get, set := GetSet(m, finished)
 	for i := 0; i < b.N; i++ {
@@ -233,7 +232,7 @@ func benchmarkMultiGetSetBlock(b *testing.B) {
 func BenchmarkMultiGetSetBlockSyncMap(b *testing.B) {
 	var m sync.Map
 	finished := make(chan struct{}, 2*b.N)
-	get, set := GetSetSyncMap(&m, finished)
+	get, set := GetSetSyncMap[string](&m, finished)
 	for i := 0; i < b.N; i++ {
 		m.Store(strconv.Itoa(i%100), "value")
 	}
@@ -260,13 +259,13 @@ func BenchmarkMultiGetSetBlock_256_Shard(b *testing.B) {
 	runWithShards(benchmarkMultiGetSetBlock, b, 256)
 }
 
-func GetSet(m ConcurrentMap, finished chan struct{}) (set func(key, value string), get func(key, value string)) {
-	return func(key, value string) {
+func GetSet[V any](m ConcurrentMap[V], finished chan struct{}) (set func(key string, value V), get func(key string, value V)) {
+	return func(key string, value V) {
 			for i := 0; i < 10; i++ {
 				m.Get(key)
 			}
 			finished <- struct{}{}
-		}, func(key, value string) {
+		}, func(key string, value V) {
 			for i := 0; i < 10; i++ {
 				m.Set(key, value)
 			}
@@ -274,14 +273,14 @@ func GetSet(m ConcurrentMap, finished chan struct{}) (set func(key, value string
 		}
 }
 
-func GetSetSyncMap(m *sync.Map, finished chan struct{}) (get func(key, value string), set func(key, value string)) {
-	get = func(key, value string) {
+func GetSetSyncMap[V any](m *sync.Map, finished chan struct{}) (get func(key string, value V), set func(key string, value V)) {
+	get = func(key string, value V) {
 		for i := 0; i < 10; i++ {
 			m.Load(key)
 		}
 		finished <- struct{}{}
 	}
-	set = func(key, value string) {
+	set = func(key string, value V) {
 		for i := 0; i < 10; i++ {
 			m.Store(key, value)
 		}
@@ -298,7 +297,7 @@ func runWithShards(bench func(b *testing.B), b *testing.B, shardsCount int) {
 }
 
 func BenchmarkKeys(b *testing.B) {
-	m := New()
+	m := New[Animal]()
 
 	// Insert 100 elements.
 	for i := 0; i < 10000; i++ {
@@ -308,89 +307,3 @@ func BenchmarkKeys(b *testing.B) {
 		m.Keys()
 	}
 }
-
-func BenchmarkReadCMAP(b *testing.B) {
-	var cm = New()
-	cm.Set("Fufu", strings.Repeat("string", 10000))
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, _ = cm.Get("Fufu")
-	}
-}
-
-func BenchmarkReadSyncMap(b *testing.B) {
-	var sm sync.Map
-	sm.Store("Fufu", strings.Repeat("string", 10000))
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, _ = sm.Load("Fufu")
-	}
-}
-
-func BenchmarkReadWCMAP(b *testing.B) {
-	var cm = New()
-	v := strings.Repeat("string", 10000)
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if i%1000 == 0 {
-			cm.Set("Fufu", v)
-		}
-		_, _ = cm.Get("Fufu")
-	}
-}
-
-func BenchmarkReadWSyncMap(b *testing.B) {
-	var sm sync.Map
-	v := strings.Repeat("string", 10000)
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if i%1000 == 0 {
-			sm.Store("Fufu", v)
-		}
-		_, _ = sm.Load("Fufu")
-	}
-}
-
-// BenchmarkReadCMAP-8       	38719293	        29.78 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkReadCMAP-8       	43828090	        30.56 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkReadCMAP-8       	41043460	        33.29 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkReadSyncMap-8    	25484545	        47.88 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkReadSyncMap-8    	25557362	        48.94 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkReadSyncMap-8    	25332060	        51.29 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkReadWCMAP-8      	34850794	        32.29 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkReadWCMAP-8      	42130688	        29.99 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkReadWCMAP-8      	42912928	        33.02 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkReadWSyncMap-8   	20900533	        68.61 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkReadWSyncMap-8   	23382936	        53.31 ns/op	       0 B/op	       0 allocs/op
-// BenchmarkReadWSyncMap-8   	25875340	        51.84 ns/op	       0 B/op	       0 allocs/op
-
-func BenchmarkWriteCMAP(b *testing.B) {
-	var cm = New()
-	v := strings.Repeat("string", 10000)
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		cm.Set("Fufu", v)
-	}
-}
-
-func BenchmarkWriteSyncMap(b *testing.B) {
-	var sm sync.Map
-	v := strings.Repeat("string", 10000)
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		sm.Store("Fufu", v)
-	}
-}
-
-// BenchmarkWriteCMAP-8      	11646267	       105.4 ns/op	      16 B/op	       1 allocs/op
-// BenchmarkWriteCMAP-8      	12547090	       102.8 ns/op	      16 B/op	       1 allocs/op
-// BenchmarkWriteCMAP-8      	11238153	       101.1 ns/op	      16 B/op	       1 allocs/op
-// BenchmarkWriteSyncMap-8   	 6279337	       214.2 ns/op	      32 B/op	       2 allocs/op
-// BenchmarkWriteSyncMap-8   	 6596197	       193.4 ns/op	      32 B/op	       2 allocs/op
-// BenchmarkWriteSyncMap-8   	 6556354	       205.0 ns/op	      32 B/op	       2 allocs/op

@@ -48,10 +48,10 @@ func BenchmarkMap_NoWarmUp(b *testing.B) {
 			continue
 		}
 		b.Run(bc.name, func(b *testing.B) {
-			m := xsync.NewMap()
-			benchmarkMap(b, func(k string) (interface{}, bool) {
+			m := xsync.NewMapOf[int]()
+			benchmarkMap(b, func(k string) (int, bool) {
 				return m.Load(k)
-			}, func(k string, v interface{}) {
+			}, func(k string, v int) {
 				m.Store(k, v)
 			}, func(k string) {
 				m.Delete(k)
@@ -67,10 +67,10 @@ func BenchmarkMapCMAP_NoWarmUp(b *testing.B) {
 			continue
 		}
 		b.Run(bc.name, func(b *testing.B) {
-			m := cmap.New()
-			benchmarkMap(b, func(k string) (interface{}, bool) {
+			m := cmap.New[int]()
+			benchmarkMap(b, func(k string) (int, bool) {
 				return m.Get(k)
-			}, func(k string, v interface{}) {
+			}, func(k string, v int) {
 				m.Set(k, v)
 			}, func(k string) {
 				m.Remove(k)
@@ -87,9 +87,14 @@ func BenchmarkMapStandard_NoWarmUp(b *testing.B) {
 		}
 		b.Run(bc.name, func(b *testing.B) {
 			var m sync.Map
-			benchmarkMap(b, func(k string) (interface{}, bool) {
-				return m.Load(k)
-			}, func(k string, v interface{}) {
+			benchmarkMap(b, func(k string) (int, bool) {
+				v, ok := m.Load(k)
+				n := 0
+				if v != nil {
+					n = v.(int)
+				}
+				return n, ok
+			}, func(k string, v int) {
 				m.Store(k, v)
 			}, func(k string) {
 				m.Delete(k)
@@ -101,13 +106,13 @@ func BenchmarkMapStandard_NoWarmUp(b *testing.B) {
 func BenchmarkMap_WarmUp(b *testing.B) {
 	for _, bc := range benchmarkCases {
 		b.Run(bc.name, func(b *testing.B) {
-			m := xsync.NewMap()
+			m := xsync.NewMapOf[int]()
 			for i := 0; i < benchmarkNumEntries; i++ {
 				m.Store(benchmarkKeyPrefix+strconv.Itoa(i), i)
 			}
-			benchmarkMap(b, func(k string) (interface{}, bool) {
+			benchmarkMap(b, func(k string) (int, bool) {
 				return m.Load(k)
-			}, func(k string, v interface{}) {
+			}, func(k string, v int) {
 				m.Store(k, v)
 			}, func(k string) {
 				m.Delete(k)
@@ -119,13 +124,13 @@ func BenchmarkMap_WarmUp(b *testing.B) {
 func BenchmarkMapCMAP_WarmUp(b *testing.B) {
 	for _, bc := range benchmarkCases {
 		b.Run(bc.name, func(b *testing.B) {
-			m := cmap.New()
+			m := cmap.New[int]()
 			for i := 0; i < benchmarkNumEntries; i++ {
 				m.Set(benchmarkKeyPrefix+strconv.Itoa(i), i)
 			}
-			benchmarkMap(b, func(k string) (interface{}, bool) {
+			benchmarkMap(b, func(k string) (int, bool) {
 				return m.Get(k)
-			}, func(k string, v interface{}) {
+			}, func(k string, v int) {
 				m.Set(k, v)
 			}, func(k string) {
 				m.Remove(k)
@@ -143,9 +148,14 @@ func BenchmarkMapStandard_WarmUp(b *testing.B) {
 			for i := 0; i < benchmarkNumEntries; i++ {
 				m.Store(benchmarkKeyPrefix+strconv.Itoa(i), i)
 			}
-			benchmarkMap(b, func(k string) (interface{}, bool) {
-				return m.Load(k)
-			}, func(k string, v interface{}) {
+			benchmarkMap(b, func(k string) (int, bool) {
+				v, ok := m.Load(k)
+				n := 0
+				if v != nil {
+					n = v.(int)
+				}
+				return n, ok
+			}, func(k string, v int) {
 				m.Store(k, v)
 			}, func(k string) {
 				m.Delete(k)
@@ -156,8 +166,8 @@ func BenchmarkMapStandard_WarmUp(b *testing.B) {
 
 func benchmarkMap(
 	b *testing.B,
-	loadFn func(k string) (interface{}, bool),
-	storeFn func(k string, v interface{}),
+	loadFn func(k string) (int, bool),
+	storeFn func(k string, v int),
 	deleteFn func(k string),
 	readPercentage int) {
 
@@ -182,7 +192,7 @@ func benchmarkMap(
 }
 
 func BenchmarkMapRange(b *testing.B) {
-	m := xsync.NewMap()
+	m := xsync.NewMapOf[int]()
 	for i := 0; i < benchmarkNumEntries; i++ {
 		m.Store(benchmarkKeys[i], i)
 	}
@@ -190,7 +200,7 @@ func BenchmarkMapRange(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		foo := 0
 		for pb.Next() {
-			m.Range(func(key string, value interface{}) bool {
+			m.Range(func(key string, value int) bool {
 				foo++
 				return true
 			})
@@ -200,7 +210,7 @@ func BenchmarkMapRange(b *testing.B) {
 }
 
 func BenchmarkMapRangeCMAP(b *testing.B) {
-	m := cmap.New()
+	m := cmap.New[int]()
 	for i := 0; i < benchmarkNumEntries; i++ {
 		m.Set(benchmarkKeys[i], i)
 	}
@@ -225,7 +235,7 @@ func BenchmarkMapRangeStandard(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		foo := 0
 		for pb.Next() {
-			m.Range(func(key interface{}, value interface{}) bool {
+			m.Range(func(key any, value any) bool {
 				foo++
 				return true
 			})
