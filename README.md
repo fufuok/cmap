@@ -5,11 +5,9 @@
 - go1.18+ 使用 `go get github.com/fufuok/cmap@v1.18.0`
 - go1.18- 使用 `go get github.com/fufuok/cmap@v1.17.0`
 
-**建议: 总体看, 直接用 `xsync.NewMapOf()` [xsync](https://github.com/fufuok/utils/tree/master/xsync) 更佳, 见下面 2 个测试**
+**建议: 总体看, 直接用 `xsync.NewMapOf()` [xsync](https://github.com/fufuok/utils/tree/master/xsync) 更佳, 符合日常使用场景, 见下面测试**
 
-**注意: `xsync.NewMapOf()` 仅 64 位构建通过了官方认证, 若要使用 32 位, 注意自己测试**
-
-或直接用原生 `sync.Map` 性能也很好了
+> 如果有 Cache 需求, 可以选用: [CacheOf and MapOf](https://github.com/fufuok/cache)
 
 ## 改动
 
@@ -18,107 +16,83 @@
 
 ## 性能测试
 
+Code: [Banchmarks](benchmarks)
+
 ```go
-go test -run=^$ -benchmem -count=2 -bench='^BenchmarkRead|^BenchmardWrite'
-goos: linux
+go test -run=^$ -bench=^BenchmarkMap -benchmem
+goos: windows
 goarch: amd64
 pkg: bench
 cpu: Intel(R) Core(TM) i5-10400 CPU @ 2.90GHz
-BenchmarkReadXsync-12           129671468                9.304 ns/op            0 B/op          0 allocs/op
-BenchmarkReadXsync-12           128664236                9.289 ns/op            0 B/op          0 allocs/op
-BenchmarkReadCMAP-12             62272962                19.52 ns/op            0 B/op          0 allocs/op
-BenchmarkReadCMAP-12             61951471                19.43 ns/op            0 B/op          0 allocs/op
-BenchmarkReadSyncMap-12          60506438                20.14 ns/op            0 B/op          0 allocs/op
-BenchmarkReadSyncMap-12          59779711                19.71 ns/op            0 B/op          0 allocs/op
-BenchmarkReadWXsync-12          100000000                10.09 ns/op            0 B/op          0 allocs/op
-BenchmarkReadWXsync-12          100000000                10.11 ns/op            0 B/op          0 allocs/op
-BenchmarkReadWCMAP-12            58568583                20.05 ns/op            0 B/op          0 allocs/op
-BenchmarkReadWCMAP-12            60009001                20.09 ns/op            0 B/op          0 allocs/op
-BenchmarkReadWSyncMap-12         59734182                20.00 ns/op            0 B/op          0 allocs/op
-BenchmarkReadWSyncMap-12         59192904                19.99 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_Xsync_NoWarmUp/99%-reads-12                64710608                20.33 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_Xsync_NoWarmUp/95%-reads-12                53458306                25.36 ns/op            1 B/op          0 allocs/op
+BenchmarkMap_Xsync_NoWarmUp/90%-reads-12                42397732                28.43 ns/op            3 B/op          0 allocs/op
+BenchmarkMap_Xsync_NoWarmUp/75%-reads-12                39661684                36.12 ns/op            7 B/op          0 allocs/op
+BenchmarkMap_Xsync_NoWarmUp/50%-reads-12                29988229                43.22 ns/op           14 B/op          1 allocs/op
+BenchmarkMap_Xsync_NoWarmUp/0%-reads-12                 23644387                56.20 ns/op           28 B/op          2 allocs/op
+BenchmarkMap_CMAP_NoWarmUp/99%-reads-12                 36163094                35.32 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_CMAP_NoWarmUp/95%-reads-12                 30738255                39.12 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_CMAP_NoWarmUp/90%-reads-12                 29988453                41.85 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_CMAP_NoWarmUp/75%-reads-12                 25092056                48.78 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_CMAP_NoWarmUp/50%-reads-12                 21845985                55.97 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_CMAP_NoWarmUp/0%-reads-12                  22355026                51.69 ns/op            1 B/op          0 allocs/op
+BenchmarkMap_SafeMap_NoWarmUp/99%-reads-12              31525105                38.27 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_SafeMap_NoWarmUp/95%-reads-12              24108003                51.54 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_SafeMap_NoWarmUp/90%-reads-12              18629055                60.09 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_SafeMap_NoWarmUp/75%-reads-12              16177629                75.59 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_SafeMap_NoWarmUp/50%-reads-12              14132227                88.33 ns/op            1 B/op          0 allocs/op
+BenchmarkMap_SafeMap_NoWarmUp/0%-reads-12               18080948                69.31 ns/op            1 B/op          0 allocs/op
+BenchmarkMap_HaxMap_NoWarmUp/99%-reads-12               45537685               103.6 ns/op             0 B/op          0 allocs/op
+BenchmarkMap_HaxMap_NoWarmUp/95%-reads-12               17076453               802.4 ns/op             1 B/op          0 allocs/op
+BenchmarkMap_HaxMap_NoWarmUp/90%-reads-12                9040446              1706 ns/op               3 B/op          0 allocs/op
+BenchmarkMap_HashMap_NoWarmUp/99%-reads-12              37258054                52.16 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_HashMap_NoWarmUp/95%-reads-12              26412634               328.1 ns/op             0 B/op          0 allocs/op
+BenchmarkMap_HashMap_NoWarmUp/90%-reads-12              10161258               469.2 ns/op             0 B/op          0 allocs/op
+BenchmarkMap_Standard_NoWarmUp/99%-reads-12             32354431               205.6 ns/op            25 B/op          0 allocs/op
+BenchmarkMap_Standard_NoWarmUp/95%-reads-12              7684450               282.0 ns/op            36 B/op          0 allocs/op
+BenchmarkMap_Standard_NoWarmUp/90%-reads-12              5882802               323.0 ns/op            38 B/op          0 allocs/op
+BenchmarkMap_Standard_NoWarmUp/75%-reads-12              4196446               441.0 ns/op            45 B/op          0 allocs/op
+BenchmarkMap_Standard_NoWarmUp/50%-reads-12              3584572               397.7 ns/op            44 B/op          0 allocs/op
+BenchmarkMap_Standard_NoWarmUp/0%-reads-12               3227061               406.9 ns/op            44 B/op          1 allocs/op
+BenchmarkMap_Xsync_WarmUp/100%-reads-12                 26602819                41.82 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_Xsync_WarmUp/99%-reads-12                  27340144                42.23 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_Xsync_WarmUp/95%-reads-12                  26160547                43.09 ns/op            1 B/op          0 allocs/op
+BenchmarkMap_Xsync_WarmUp/90%-reads-12                  27323150                43.50 ns/op            2 B/op          0 allocs/op
+BenchmarkMap_Xsync_WarmUp/75%-reads-12                  23644341                46.19 ns/op            6 B/op          0 allocs/op
+BenchmarkMap_Xsync_WarmUp/50%-reads-12                  24121766                50.25 ns/op           13 B/op          0 allocs/op
+BenchmarkMap_Xsync_WarmUp/0%-reads-12                   20207196                58.87 ns/op           28 B/op          1 allocs/op
+BenchmarkMap_CMAP_WarmUp/100%-reads-12                  23688448                48.25 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_CMAP_WarmUp/99%-reads-12                   24590314                47.63 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_CMAP_WarmUp/95%-reads-12                   24590869                48.50 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_CMAP_WarmUp/90%-reads-12                   23644574                50.85 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_CMAP_WarmUp/75%-reads-12                   20839302                55.83 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_CMAP_WarmUp/50%-reads-12                   19516192                60.61 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_CMAP_WarmUp/0%-reads-12                    20155837                53.12 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_SafeMap_WarmUp/100%-reads-12               25765946                46.52 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_SafeMap_WarmUp/99%-reads-12                23643782                49.82 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_SafeMap_WarmUp/95%-reads-12                19839825                61.30 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_SafeMap_WarmUp/90%-reads-12                17317291                68.36 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_SafeMap_WarmUp/75%-reads-12                13971813                83.34 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_SafeMap_WarmUp/50%-reads-12                12807253                93.12 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_SafeMap_WarmUp/0%-reads-12                 16842577                69.89 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_HaxMap_WarmUp/100%-reads-12                28593690                47.12 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_HaxMap_WarmUp/99%-reads-12                    56652             24877 ns/op               1 B/op          0 allocs/op
+BenchmarkMap_HaxMap_WarmUp/95%-reads-12                    18652            128776 ns/op               5 B/op          0 allocs/op
+BenchmarkMap_Standard_WarmUp/100%-reads-12              16443584                64.52 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_Standard_WarmUp/99%-reads-12               15949532                72.13 ns/op            2 B/op          0 allocs/op
+BenchmarkMap_Standard_WarmUp/95%-reads-12               13338102                78.88 ns/op            3 B/op          0 allocs/op
+BenchmarkMap_Standard_WarmUp/90%-reads-12               16004941                71.90 ns/op            3 B/op          0 allocs/op
+BenchmarkMap_Standard_WarmUp/75%-reads-12               12688712                82.75 ns/op            7 B/op          0 allocs/op
+BenchmarkMap_Standard_WarmUp/50%-reads-12               11426654                90.88 ns/op           12 B/op          0 allocs/op
+BenchmarkMap_Standard_WarmUp/0%-reads-12                10297602               103.1 ns/op            22 B/op          1 allocs/op
+BenchmarkMap_Xsync_Range-12                                  280           4545280 ns/op               3 B/op          0 allocs/op
+BenchmarkMap_CMAP_Range-12                                    80          15866595 ns/op        24067569 B/op        200 allocs/op
+BenchmarkMap_SafeMap_Range-12                                 81          15316763 ns/op        24046433 B/op         79 allocs/op
+BenchmarkMap_HaxMap_Range-12                                 320           3632630 ns/op               3 B/op          0 allocs/op
+BenchmarkMap_Standard_Range-12                               193           6159392 ns/op               5 B/op          0 allocs/op
 ```
 
-------
 
-```go
-go test -run=^$ -benchmem -count=2 -bench=^BenchmarkMap
-goos: linux
-goarch: amd64
-pkg: bench
-cpu: Intel(R) Core(TM) i5-10400 CPU @ 2.90GHz
-BenchmarkMap_NoWarmUp/99%-reads-12              48327076               31.24 ns/op             1 B/op          0 allocs/op
-BenchmarkMap_NoWarmUp/99%-reads-12              40286436               31.51 ns/op             1 B/op          0 allocs/op
-BenchmarkMap_NoWarmUp/90%-reads-12              25770649               59.91 ns/op            22 B/op          0 allocs/op
-BenchmarkMap_NoWarmUp/90%-reads-12              28524430               45.01 ns/op            10 B/op          0 allocs/op
-BenchmarkMap_NoWarmUp/75%-reads-12              18421100               67.56 ns/op            32 B/op          0 allocs/op
-BenchmarkMap_NoWarmUp/75%-reads-12              22139414               52.30 ns/op            15 B/op          0 allocs/op
-BenchmarkMap_NoWarmUp/50%-reads-12              17698430               74.60 ns/op            36 B/op          0 allocs/op
-BenchmarkMap_NoWarmUp/50%-reads-12              17486898               77.29 ns/op            36 B/op          0 allocs/op
-BenchmarkMap_NoWarmUp/0%-reads-12               12857574               84.32 ns/op            53 B/op          1 allocs/op
-BenchmarkMap_NoWarmUp/0%-reads-12               11199740               95.67 ns/op            59 B/op          0 allocs/op
-BenchmarkMapCMAP_NoWarmUp/99%-reads-12          11457136               105.5 ns/op             0 B/op          0 allocs/op
-BenchmarkMapCMAP_NoWarmUp/99%-reads-12          11232000               103.4 ns/op             0 B/op          0 allocs/op
-BenchmarkMapCMAP_NoWarmUp/90%-reads-12           5148685               247.7 ns/op             3 B/op          0 allocs/op
-BenchmarkMapCMAP_NoWarmUp/90%-reads-12           5222319               248.9 ns/op             3 B/op          0 allocs/op
-BenchmarkMapCMAP_NoWarmUp/75%-reads-12           4601702               282.7 ns/op             6 B/op          0 allocs/op
-BenchmarkMapCMAP_NoWarmUp/75%-reads-12           4572554               295.7 ns/op             6 B/op          0 allocs/op
-BenchmarkMapCMAP_NoWarmUp/50%-reads-12           4226767               312.3 ns/op            15 B/op          0 allocs/op
-BenchmarkMapCMAP_NoWarmUp/50%-reads-12           4102942               315.0 ns/op            15 B/op          0 allocs/op
-BenchmarkMapCMAP_NoWarmUp/0%-reads-12           11634411               86.01 ns/op             5 B/op          0 allocs/op
-BenchmarkMapCMAP_NoWarmUp/0%-reads-12           13807988               81.58 ns/op             4 B/op          0 allocs/op
-BenchmarkMapStandard_NoWarmUp/99%-reads-12       3392006               394.0 ns/op            47 B/op          0 allocs/op
-BenchmarkMapStandard_NoWarmUp/99%-reads-12       3531196               378.2 ns/op            47 B/op          0 allocs/op
-BenchmarkMapStandard_NoWarmUp/90%-reads-12       2304710               599.3 ns/op            49 B/op          0 allocs/op
-BenchmarkMapStandard_NoWarmUp/90%-reads-12       2330407               551.2 ns/op            49 B/op          0 allocs/op
-BenchmarkMapStandard_NoWarmUp/75%-reads-12       1879966               627.0 ns/op            54 B/op          0 allocs/op
-BenchmarkMapStandard_NoWarmUp/75%-reads-12       1886103               593.8 ns/op            52 B/op          0 allocs/op
-BenchmarkMapStandard_NoWarmUp/50%-reads-12       1779472               652.9 ns/op            57 B/op          1 allocs/op
-BenchmarkMapStandard_NoWarmUp/50%-reads-12       1801131               648.7 ns/op            56 B/op          1 allocs/op
-BenchmarkMapStandard_NoWarmUp/0%-reads-12        1411503               789.6 ns/op            86 B/op          2 allocs/op
-BenchmarkMapStandard_NoWarmUp/0%-reads-12        1607422               716.0 ns/op            77 B/op          2 allocs/op
-BenchmarkMap_WarmUp/100%-reads-12               24238456               51.00 ns/op             0 B/op          0 allocs/op
-BenchmarkMap_WarmUp/100%-reads-12               22185780               60.96 ns/op             0 B/op          0 allocs/op
-BenchmarkMap_WarmUp/99%-reads-12                23345212               60.69 ns/op             0 B/op          0 allocs/op
-BenchmarkMap_WarmUp/99%-reads-12                21724095               55.89 ns/op             0 B/op          0 allocs/op
-BenchmarkMap_WarmUp/90%-reads-12                21041851               66.33 ns/op             1 B/op          0 allocs/op
-BenchmarkMap_WarmUp/90%-reads-12                22371948               48.79 ns/op             1 B/op          0 allocs/op
-BenchmarkMap_WarmUp/75%-reads-12                22804063               44.78 ns/op             3 B/op          0 allocs/op
-BenchmarkMap_WarmUp/75%-reads-12                26133721               45.75 ns/op             3 B/op          0 allocs/op
-BenchmarkMap_WarmUp/50%-reads-12                20519379               54.57 ns/op             6 B/op          0 allocs/op
-BenchmarkMap_WarmUp/50%-reads-12                26183919               48.47 ns/op             6 B/op          0 allocs/op
-BenchmarkMap_WarmUp/0%-reads-12                 19737588               57.82 ns/op            12 B/op          1 allocs/op
-BenchmarkMap_WarmUp/0%-reads-12                 22736452               52.16 ns/op            12 B/op          1 allocs/op
-BenchmarkMapCMAP_WarmUp/100%-reads-12           19694181               51.60 ns/op             0 B/op          0 allocs/op
-BenchmarkMapCMAP_WarmUp/100%-reads-12           22738555               52.44 ns/op             0 B/op          0 allocs/op
-BenchmarkMapCMAP_WarmUp/99%-reads-12             8034818               152.0 ns/op             0 B/op          0 allocs/op
-BenchmarkMapCMAP_WarmUp/99%-reads-12             7730708               145.9 ns/op             0 B/op          0 allocs/op
-BenchmarkMapCMAP_WarmUp/90%-reads-12             4043752               295.6 ns/op             0 B/op          0 allocs/op
-BenchmarkMapCMAP_WarmUp/90%-reads-12             4028773               291.4 ns/op             0 B/op          0 allocs/op
-BenchmarkMapCMAP_WarmUp/75%-reads-12             3191673               325.6 ns/op             0 B/op          0 allocs/op
-BenchmarkMapCMAP_WarmUp/75%-reads-12             3344899               329.2 ns/op             0 B/op          0 allocs/op
-BenchmarkMapCMAP_WarmUp/50%-reads-12             3449197               361.8 ns/op             0 B/op          0 allocs/op
-BenchmarkMapCMAP_WarmUp/50%-reads-12             3552146               323.8 ns/op             0 B/op          0 allocs/op
-BenchmarkMapCMAP_WarmUp/0%-reads-12             16581148               84.50 ns/op             0 B/op          0 allocs/op
-BenchmarkMapCMAP_WarmUp/0%-reads-12             15677961               78.09 ns/op             0 B/op          0 allocs/op
-BenchmarkMapStandard_WarmUp/100%-reads-12        7987387               131.5 ns/op             0 B/op          0 allocs/op
-BenchmarkMapStandard_WarmUp/100%-reads-12        7768620               145.2 ns/op             0 B/op          0 allocs/op
-BenchmarkMapStandard_WarmUp/99%-reads-12         2109114               480.2 ns/op            27 B/op          0 allocs/op
-BenchmarkMapStandard_WarmUp/99%-reads-12         2140489               471.2 ns/op            27 B/op          0 allocs/op
-BenchmarkMapStandard_WarmUp/90%-reads-12         2104882               481.7 ns/op            29 B/op          0 allocs/op
-BenchmarkMapStandard_WarmUp/90%-reads-12         2078965               494.4 ns/op            29 B/op          0 allocs/op
-BenchmarkMapStandard_WarmUp/75%-reads-12         1952872               564.9 ns/op            34 B/op          0 allocs/op
-BenchmarkMapStandard_WarmUp/75%-reads-12         1984945               541.7 ns/op            34 B/op          0 allocs/op
-BenchmarkMapStandard_WarmUp/50%-reads-12         1953594               634.6 ns/op            27 B/op          0 allocs/op
-BenchmarkMapStandard_WarmUp/50%-reads-12         1993894               614.4 ns/op            27 B/op          0 allocs/op
-BenchmarkMapStandard_WarmUp/0%-reads-12          1737729               740.0 ns/op            40 B/op          1 allocs/op
-BenchmarkMapStandard_WarmUp/0%-reads-12          1890639               698.9 ns/op            39 B/op          1 allocs/op
-BenchmarkMapRange-12                                  82            16068934 ns/op           124 B/op          1 allocs/op
-BenchmarkMapRange-12                                  99            15810145 ns/op           127 B/op          1 allocs/op
-BenchmarkMapRangeCMAP-12                              31            47355519 ns/op      48127209 B/op        199 allocs/op
-BenchmarkMapRangeCMAP-12                              25            47870128 ns/op      48127224 B/op        200 allocs/op
-BenchmarkMapRangeStandard-12                          78            14191099 ns/op            14 B/op          0 allocs/op
-BenchmarkMapRangeStandard-12                          79            14703753 ns/op            14 B/op          0 allocs/op
-```
 
 # concurrent map [![Build Status](https://travis-ci.com/orcaman/concurrent-map.svg?branch=master)](https://travis-ci.com/orcaman/concurrent-map)
 
