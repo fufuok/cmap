@@ -5,7 +5,7 @@
 - go1.18+ 使用 `go get github.com/fufuok/cmap@v1.18.0`
 - go1.18- 使用 `go get github.com/fufuok/cmap@v1.17.0`
 
-**建议: 总体看, 直接用 `xsync.NewMapOf()` [xsync](https://github.com/fufuok/utils/tree/master/xsync) 更佳, 符合日常使用场景, 见下面测试**
+**建议: 总体看, 直接用 `xsync.NewMapOf()` [github.com/puzpuzpuz/xsync](github.com/puzpuzpuz/xsync) 更佳, 符合日常使用场景, 且支持可比较泛型键. 下面有测试**
 
 > 如果有 Cache 需求, 可以选用: [CacheOf and MapOf](https://github.com/fufuok/cache)
 
@@ -17,6 +17,94 @@
 ## 性能测试
 
 Code: [Banchmarks](benchmarks)
+
+- 可以根据您的场景, 修改 [benchmarks/map_bench_test.go] 的测试参数, 下面是参考值
+
+- Number of entries used in benchmark: `500_000`
+
+- ```go
+  {"100%-reads", 100}, // 100% loads,    0% stores,    0% deletes
+  {"99%-reads", 99},   //  99% loads,  0.5% stores,  0.5% deletes
+  {"95%-reads", 95},   //  95% loads,  2.5% stores,  2.5% deletes
+  {"90%-reads", 90},   //  90% loads,    5% stores,    5% deletes
+  {"75%-reads", 75},   //  75% loads, 12.5% stores, 12.5% deletes
+  {"50%-reads", 50},   //  50% loads,   25% stores,   25% deletes
+  {"0%-reads", 0},     //   0% loads,   50% stores,   50% deletes
+  ```
+
+```go
+go test -bench=^BenchmarkMap -benchmem
+goos: linux
+goarch: amd64
+pkg: bench
+cpu: Intel(R) Xeon(R) Silver 4314 CPU @ 2.40GHz
+BenchmarkMap_Xsync_NoWarmUp/99%-reads-64                110687433               12.49 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_Xsync_NoWarmUp/95%-reads-64                88322406                17.27 ns/op            1 B/op          0 allocs/op
+BenchmarkMap_Xsync_NoWarmUp/90%-reads-64                60254306                19.02 ns/op            3 B/op          0 allocs/op
+BenchmarkMap_Xsync_NoWarmUp/75%-reads-64                47258060                24.51 ns/op            7 B/op          0 allocs/op
+BenchmarkMap_Xsync_NoWarmUp/50%-reads-64                37846016                29.71 ns/op           14 B/op          1 allocs/op
+BenchmarkMap_Xsync_NoWarmUp/0%-reads-64                 21427845                53.49 ns/op           29 B/op          2 allocs/op
+BenchmarkMap_CMAP_NoWarmUp/99%-reads-64                 12194355                88.52 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_CMAP_NoWarmUp/95%-reads-64                 10678164               103.7 ns/op             1 B/op          0 allocs/op
+BenchmarkMap_CMAP_NoWarmUp/90%-reads-64                  9453764               115.5 ns/op             2 B/op          0 allocs/op
+BenchmarkMap_CMAP_NoWarmUp/75%-reads-64                  7884636               147.0 ns/op             4 B/op          0 allocs/op
+BenchmarkMap_CMAP_NoWarmUp/50%-reads-64                  5907775               169.7 ns/op             5 B/op          0 allocs/op
+BenchmarkMap_CMAP_NoWarmUp/0%-reads-64                   8712856               136.8 ns/op             3 B/op          0 allocs/op
+BenchmarkMap_SafeMap_NoWarmUp/99%-reads-64              19244058                54.46 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_SafeMap_NoWarmUp/95%-reads-64              15166338                66.34 ns/op            1 B/op          0 allocs/op
+BenchmarkMap_SafeMap_NoWarmUp/90%-reads-64              13815511                79.05 ns/op            2 B/op          0 allocs/op
+BenchmarkMap_SafeMap_NoWarmUp/75%-reads-64              11180854                97.32 ns/op            2 B/op          0 allocs/op
+BenchmarkMap_SafeMap_NoWarmUp/50%-reads-64               9022095               116.0 ns/op             3 B/op          0 allocs/op
+BenchmarkMap_SafeMap_NoWarmUp/0%-reads-64               12543771                94.35 ns/op            2 B/op          0 allocs/op
+BenchmarkMap_HaxMap_NoWarmUp/99%-reads-64               49126554               322.2 ns/op             0 B/op          0 allocs/op
+BenchmarkMap_HaxMap_NoWarmUp/95%-reads-64               11755160              1698 ns/op               4 B/op          0 allocs/op
+BenchmarkMap_HaxMap_NoWarmUp/90%-reads-64                2689261              1555 ns/op               6 B/op          0 allocs/op
+BenchmarkMap_HashMap_NoWarmUp/99%-reads-64              59778726                70.58 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_HashMap_NoWarmUp/95%-reads-64              28713607               503.3 ns/op             1 B/op          0 allocs/op
+BenchmarkMap_HashMap_NoWarmUp/90%-reads-64               9664908               883.1 ns/op             3 B/op          0 allocs/op
+BenchmarkMap_Standard_NoWarmUp/99%-reads-64              1000000              1256 ns/op              34 B/op          0 allocs/op
+BenchmarkMap_Standard_NoWarmUp/95%-reads-64              1000000              1802 ns/op              49 B/op          0 allocs/op
+BenchmarkMap_Standard_NoWarmUp/90%-reads-64               757347              2299 ns/op              52 B/op          0 allocs/op
+BenchmarkMap_Standard_NoWarmUp/75%-reads-64               492739              2053 ns/op              61 B/op          0 allocs/op
+BenchmarkMap_Standard_NoWarmUp/50%-reads-64               581881              2393 ns/op              67 B/op          1 allocs/op
+BenchmarkMap_Standard_NoWarmUp/0%-reads-64                450807              2734 ns/op              74 B/op          2 allocs/op
+BenchmarkMap_Xsync_WarmUp/100%-reads-64                 72828616                15.13 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_Xsync_WarmUp/99%-reads-64                  83636658                12.63 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_Xsync_WarmUp/95%-reads-64                  109142733               11.13 ns/op            1 B/op          0 allocs/op
+BenchmarkMap_Xsync_WarmUp/90%-reads-64                  86160418                11.95 ns/op            2 B/op          0 allocs/op
+BenchmarkMap_Xsync_WarmUp/75%-reads-64                  61728336                18.89 ns/op            7 B/op          0 allocs/op
+BenchmarkMap_Xsync_WarmUp/50%-reads-64                  40054539                29.05 ns/op           14 B/op          0 allocs/op
+BenchmarkMap_Xsync_WarmUp/0%-reads-64                   22612006                51.49 ns/op           28 B/op          1 allocs/op
+BenchmarkMap_CMAP_WarmUp/100%-reads-64                  19063858                56.10 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_CMAP_WarmUp/99%-reads-64                   12072297                92.42 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_CMAP_WarmUp/95%-reads-64                   10185296               109.3 ns/op             0 B/op          0 allocs/op
+BenchmarkMap_CMAP_WarmUp/90%-reads-64                    8919643               125.0 ns/op             0 B/op          0 allocs/op
+BenchmarkMap_CMAP_WarmUp/75%-reads-64                    9807985               155.9 ns/op             0 B/op          0 allocs/op
+BenchmarkMap_CMAP_WarmUp/50%-reads-64                    5923474               192.6 ns/op             0 B/op          0 allocs/op
+BenchmarkMap_CMAP_WarmUp/0%-reads-64                     7987324               140.3 ns/op             0 B/op          0 allocs/op
+BenchmarkMap_SafeMap_WarmUp/100%-reads-64               28904026                41.24 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_SafeMap_WarmUp/99%-reads-64                17206824                60.07 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_SafeMap_WarmUp/95%-reads-64                23110501                74.46 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_SafeMap_WarmUp/90%-reads-64                13308271                80.85 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_SafeMap_WarmUp/75%-reads-64                11731944                98.30 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_SafeMap_WarmUp/50%-reads-64                 9324200               122.5 ns/op             0 B/op          0 allocs/op
+BenchmarkMap_SafeMap_WarmUp/0%-reads-64                 16906158                91.44 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_HaxMap_WarmUp/100%-reads-64                84342962                14.05 ns/op            0 B/op          0 allocs/op
+BenchmarkMap_HaxMap_WarmUp/99%-reads-64                   204526              5227 ns/op               2 B/op          0 allocs/op
+BenchmarkMap_HaxMap_WarmUp/95%-reads-64                    39470             32335 ns/op              11 B/op          0 allocs/op
+BenchmarkMap_Standard_WarmUp/100%-reads-64                491080              2456 ns/op               0 B/op          0 allocs/op
+BenchmarkMap_Standard_WarmUp/99%-reads-64                 500222              2310 ns/op               0 B/op          0 allocs/op
+BenchmarkMap_Standard_WarmUp/95%-reads-64                 565968              2648 ns/op              52 B/op          0 allocs/op
+BenchmarkMap_Standard_WarmUp/90%-reads-64                 485007              2373 ns/op               2 B/op          0 allocs/op
+BenchmarkMap_Standard_WarmUp/75%-reads-64                 506257              2420 ns/op               5 B/op          0 allocs/op
+BenchmarkMap_Standard_WarmUp/50%-reads-64                 458026              2452 ns/op              11 B/op          0 allocs/op
+BenchmarkMap_Standard_WarmUp/0%-reads-64                  418957              2582 ns/op              22 B/op          1 allocs/op
+BenchmarkMap_Xsync_Range-64                                 1690            728412 ns/op               3 B/op          0 allocs/op
+BenchmarkMap_CMAP_Range-64                                    14          94184852 ns/op        24067662 B/op        208 allocs/op
+BenchmarkMap_SafeMap_Range-64                                 34          71351911 ns/op        24262000 B/op        412 allocs/op
+BenchmarkMap_HaxMap_Range-64                                1179            853686 ns/op               4 B/op          0 allocs/op
+BenchmarkMap_Standard_Range-64                               876           1328893 ns/op               6 B/op          0 allocs/op
+```
 
 ```go
 go test -run=^$ -bench=^BenchmarkMap -benchmem

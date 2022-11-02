@@ -6,8 +6,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/orcaman/concurrent-map/v2 v2.0.0 h1:iSMwuBQvQ1nX5i9gYuGMiSy0fjWHmazdjF+NdSO9JzI=
 github.com/orcaman/concurrent-map/v2 v2.0.0/go.mod h1:9Eq3TG2oBe5FirmYWQfYO5iH1q0Jv47PLaNK++uCdOM=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
-github.com/puzpuzpuz/xsync/v2 v2.3.0 h1:9BabeMbrXhp7NNQ4eoxJWAcIVbsZSko1IEkCETBvWTs=
-github.com/puzpuzpuz/xsync/v2 v2.3.0/go.mod h1:gD2H2krq/w52MfPLE+Uy64TzJDVY7lP2znR9qmR35kU=
+github.com/puzpuzpuz/xsync/v2 v2.3.1 h1:oAm/nI4ZC+FqOM7t2fnA7DaQVsuj4fO2KcTcNTS1Q9Y=
+github.com/puzpuzpuz/xsync/v2 v2.3.1/go.mod h1:gD2H2krq/w52MfPLE+Uy64TzJDVY7lP2znR9qmR35kU=
 github.com/smallnest/safemap v0.0.0-20220904104306-ea4af14ec8ea h1:+tYs23f4MRgbu3RjueIXUwiaAKQM0ucH7f6eGhkm8yw=
 github.com/smallnest/safemap v0.0.0-20220904104306-ea4af14ec8ea/go.mod h1:E+mbNx88W1gSDEmixSXwFF8H/BWtU8wW7MUh00Eg5Gc=
 github.com/stretchr/testify v1.8.0 h1:pSgiaMZlXftHpm5L7V1+rVB+AZJydKsMxsQBIJw4PKk=
