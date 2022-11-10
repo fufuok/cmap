@@ -1,40 +1,55 @@
+//go:build go1.18
+// +build go1.18
+
 package cmap
 
 import (
 	"encoding/json"
 	"sync"
+
+	"github.com/fufuok/cmap/internal/xxhash"
 )
 
-var ShardCount = 32
-
-// Map A "thread" safe map of type string:Anything.
+// MapOf A "thread" safe map of type string:Anything.
 // To avoid lock bottlenecks this map is dived to several (ShardCount) map shards.
-type Map []*Shared
-
-// Shared A "thread" safe string to anything map.
-type Shared struct {
-	items map[string]interface{}
-
-	// Read Write mutex, guards access to internal map.
-	sync.RWMutex
+type MapOf[K comparable, V any] struct {
+	shards   []*SharedOf[K, V]
+	sharding func(key K) uint64
 }
 
-// New Creates a new concurrent map.
-func New() Map {
-	m := make(Map, ShardCount)
-	for i := 0; i < ShardCount; i++ {
-		m[i] = &Shared{items: make(map[string]interface{})}
-	}
+// SharedOf A "thread" safe string to anything map.
+type SharedOf[K comparable, V any] struct {
+	items        map[K]V
+	sync.RWMutex // Read Write mutex, guards access to internal map.
+}
 
+func create[K comparable, V any](sharding func(key K) uint64) *MapOf[K, V] {
+	m := &MapOf[K, V]{
+		sharding: sharding,
+		shards:   make([]*SharedOf[K, V], ShardCount),
+	}
+	for i := 0; i < ShardCount; i++ {
+		m.shards[i] = &SharedOf[K, V]{items: make(map[K]V)}
+	}
 	return m
 }
 
-// GetShard returns shard under given key
-func (m Map) GetShard(key string) *Shared {
-	return m[uint(fnv32(key))%uint(ShardCount)]
+// NewOf Creates a new concurrent map.
+func NewOf[K comparable, V any]() *MapOf[K, V] {
+	return NewWithCustomShardingFunction[K, V](xxhash.GenHasher64[K]())
 }
 
-func (m Map) MSet(data map[string]interface{}) {
+// NewWithCustomShardingFunction Creates a new concurrent map.
+func NewWithCustomShardingFunction[K comparable, V any](sharding func(key K) uint64) *MapOf[K, V] {
+	return create[K, V](sharding)
+}
+
+// GetShard returns shard under given key
+func (m *MapOf[K, V]) GetShard(key K) *SharedOf[K, V] {
+	return m.shards[uint(m.sharding(key))%uint(ShardCount)]
+}
+
+func (m *MapOf[K, V]) MSet(data map[K]V) {
 	for key, value := range data {
 		shard := m.GetShard(key)
 		shard.Lock()
@@ -44,7 +59,7 @@ func (m Map) MSet(data map[string]interface{}) {
 }
 
 // Set Sets the given value under the specified key.
-func (m Map) Set(key string, value interface{}) {
+func (m *MapOf[K, V]) Set(key K, value V) {
 	// Get map shard.
 	shard := m.GetShard(key)
 	shard.Lock()
@@ -52,26 +67,25 @@ func (m Map) Set(key string, value interface{}) {
 	shard.Unlock()
 }
 
-// UpsertCb Callback to return new element to be inserted into the map
+// UpsertCbOf Callback to return new element to be inserted into the map
 // It is called while lock is held, therefore it MUST NOT
 // try to access other keys in same map, as it can lead to deadlock since
 // Go sync.RWLock is not reentrant
-type UpsertCb func(exist bool, valueInMap interface{}, newValue interface{}) interface{}
+type UpsertCbOf[V any] func(exist bool, valueInMap V, newValue V) V
 
-// Upsert Insert or Update - updates existing element or inserts a new one using UpsertCb
-func (m Map) Upsert(key string, value interface{}, cb UpsertCb) (res interface{}) {
+// Upsert Insert or Update - updates existing element or inserts a new one using UpsertCbOf
+func (m *MapOf[K, V]) Upsert(key K, value V, cb UpsertCbOf[V]) (res V) {
 	shard := m.GetShard(key)
 	shard.Lock()
 	v, ok := shard.items[key]
 	res = cb(ok, v, value)
 	shard.items[key] = res
 	shard.Unlock()
-
 	return res
 }
 
 // SetIfAbsent Sets the given value under the specified key if no value was associated with it.
-func (m Map) SetIfAbsent(key string, value interface{}) bool {
+func (m *MapOf[K, V]) SetIfAbsent(key K, value V) bool {
 	// Get map shard.
 	shard := m.GetShard(key)
 	shard.Lock()
@@ -80,55 +94,45 @@ func (m Map) SetIfAbsent(key string, value interface{}) bool {
 		shard.items[key] = value
 	}
 	shard.Unlock()
-
 	return !ok
 }
 
 // Get retrieves an element from map under given key.
-func (m Map) Get(key string) (interface{}, bool) {
+func (m *MapOf[K, V]) Get(key K) (V, bool) {
 	// Get shard
 	shard := m.GetShard(key)
 	shard.RLock()
 	// Get item from shard.
 	val, ok := shard.items[key]
 	shard.RUnlock()
-
 	return val, ok
 }
 
-// GetValue Get retrieves an element from map under given key.
-func (m Map) GetValue(key string) (val interface{}) {
-	val, _ = m.Get(key)
-	return
-}
-
 // Count returns the number of elements within the map.
-func (m Map) Count() int {
+func (m *MapOf[K, V]) Count() int {
 	count := 0
 	for i := 0; i < ShardCount; i++ {
-		shard := m[i]
+		shard := m.shards[i]
 		shard.RLock()
 		count += len(shard.items)
 		shard.RUnlock()
 	}
-
 	return count
 }
 
 // Has Looks up an item under specified key
-func (m Map) Has(key string) bool {
+func (m *MapOf[K, V]) Has(key K) bool {
 	// Get shard
 	shard := m.GetShard(key)
 	shard.RLock()
 	// See if element is within shard.
 	_, ok := shard.items[key]
 	shard.RUnlock()
-
 	return ok
 }
 
 // Remove removes an element from the map.
-func (m Map) Remove(key string) {
+func (m *MapOf[K, V]) Remove(key K) {
 	// Try to get shard.
 	shard := m.GetShard(key)
 	shard.Lock()
@@ -136,14 +140,14 @@ func (m Map) Remove(key string) {
 	shard.Unlock()
 }
 
-// RemoveCb is a callback executed in a map.RemoveCb() call, while Lock is held
+// RemoveCbOf is a callback executed in a map.RemoveCbOf() call, while Lock is held
 // If returns true, the element will be removed from the map
-type RemoveCb func(key string, v interface{}, exists bool) bool
+type RemoveCbOf[K any, V any] func(key K, v V, exists bool) bool
 
 // RemoveCb locks the shard containing the key, retrieves its current value and calls the callback with those params
 // If callback returns true and element exists, it will remove it from the map
 // Returns the value returned by the callback (even if element was not present in the map)
-func (m Map) RemoveCb(key string, cb RemoveCb) bool {
+func (m *MapOf[K, V]) RemoveCb(key K, cb RemoveCbOf[K, V]) bool {
 	// Try to get shard.
 	shard := m.GetShard(key)
 	shard.Lock()
@@ -153,91 +157,86 @@ func (m Map) RemoveCb(key string, cb RemoveCb) bool {
 		delete(shard.items, key)
 	}
 	shard.Unlock()
-
 	return remove
 }
 
 // Pop removes an element from the map and returns it
-func (m Map) Pop(key string) (v interface{}, exists bool) {
+func (m *MapOf[K, V]) Pop(key K) (v V, exists bool) {
 	// Try to get shard.
 	shard := m.GetShard(key)
 	shard.Lock()
 	v, exists = shard.items[key]
 	delete(shard.items, key)
 	shard.Unlock()
-
 	return v, exists
 }
 
 // IsEmpty checks if map is empty.
-func (m Map) IsEmpty() bool {
+func (m *MapOf[K, V]) IsEmpty() bool {
 	return m.Count() == 0
 }
 
-// Tuple Used by the Iter & IterBuffered functions to wrap two variables together over a channel,
-type Tuple struct {
-	Key string
-	Val interface{}
+// TupleOf Used by the Iter & IterBuffered functions to wrap two variables together over a channel,
+type TupleOf[K comparable, V any] struct {
+	Key K
+	Val V
 }
 
 // IterBuffered returns a buffered iterator which could be used in a for range loop.
-func (m Map) IterBuffered() <-chan Tuple {
-	chans := snapshot(m)
+func (m *MapOf[K, V]) IterBuffered() <-chan TupleOf[K, V] {
+	chans := snapshotOf(m)
 	total := 0
 	for _, c := range chans {
 		total += cap(c)
 	}
-	ch := make(chan Tuple, total)
-
-	go fanIn(chans, ch)
-
+	ch := make(chan TupleOf[K, V], total)
+	go fanInOf(chans, ch)
 	return ch
 }
 
 // Clear removes all items from map.
-func (m Map) Clear() {
+func (m *MapOf[K, V]) Clear() {
 	for item := range m.IterBuffered() {
 		m.Remove(item.Key)
 	}
 }
 
 // Returns a array of channels that contains elements in each shard,
-// which likely takes a snapshot of `m`.
+// which likely takes a snapshotOf of `m`.
 // It returns once the size of each buffered channel is determined,
 // before all the channels are populated using goroutines.
-func snapshot(m Map) (chans []chan Tuple) {
+func snapshotOf[K comparable, V any](m *MapOf[K, V]) (chans []chan TupleOf[K, V]) {
 	// When you access map items before initializing.
-	if len(m) == 0 {
-		panic(`cmap.Map is not initialized. Should run New() before usage.`)
+	if len(m.shards) == 0 {
+		panic(`cmap.MapOf is not initialized. Should run New() before usage.`)
 	}
-	chans = make([]chan Tuple, ShardCount)
+	chans = make([]chan TupleOf[K, V], ShardCount)
 	wg := sync.WaitGroup{}
 	wg.Add(ShardCount)
 	// Foreach shard.
-	for index, shard := range m {
-		go func(index int, shard *Shared) {
+	for index, shard := range m.shards {
+		go func(index int, shard *SharedOf[K, V]) {
 			// Foreach key, value pair.
 			shard.RLock()
-			chans[index] = make(chan Tuple, len(shard.items))
+			chans[index] = make(chan TupleOf[K, V], len(shard.items))
 			wg.Done()
 			for key, val := range shard.items {
-				chans[index] <- Tuple{key, val}
+				chans[index] <- TupleOf[K, V]{key, val}
 			}
 			shard.RUnlock()
 			close(chans[index])
 		}(index, shard)
 	}
 	wg.Wait()
-
 	return chans
 }
 
-// fanIn reads elements from channels `chans` into channel `out`
-func fanIn(chans []chan Tuple, out chan Tuple) {
+// fanInOf reads elements from channels `chans` into channel `out`
+func fanInOf[K comparable, V any](chans []chan TupleOf[K, V], out chan TupleOf[K, V]) {
 	wg := sync.WaitGroup{}
 	wg.Add(len(chans))
 	for _, ch := range chans {
-		go func(ch chan Tuple) {
+		go func(ch chan TupleOf[K, V]) {
 			for t := range ch {
 				out <- t
 			}
@@ -248,9 +247,9 @@ func fanIn(chans []chan Tuple, out chan Tuple) {
 	close(out)
 }
 
-// Items returns all items as map[string]interface{}
-func (m Map) Items() map[string]interface{} {
-	tmp := make(map[string]interface{})
+// Items returns all items as map[string]V
+func (m *MapOf[K, V]) Items() map[K]V {
+	tmp := make(map[K]V)
 
 	// Insert items to temporary map.
 	for item := range m.IterBuffered() {
@@ -260,17 +259,17 @@ func (m Map) Items() map[string]interface{} {
 	return tmp
 }
 
-// IterCb Iterator callback,called for every key,value found in
+// IterCbOf Iterator callbacalled for every key,value found in
 // maps. RLock is held for all calls for a given shard
 // therefore callback sess consistent view of a shard,
 // but not across the shards
-type IterCb func(key string, v interface{})
+type IterCbOf[K comparable, V any] func(key K, v V)
 
 // IterCb Callback based iterator, cheapest way to read
 // all elements in a map.
-func (m Map) IterCb(fn IterCb) {
-	for idx := range m {
-		shard := (m)[idx]
+func (m *MapOf[K, V]) IterCb(fn IterCbOf[K, V]) {
+	for idx := range m.shards {
+		shard := (m.shards)[idx]
 		shard.RLock()
 		for key, value := range shard.items {
 			fn(key, value)
@@ -280,16 +279,15 @@ func (m Map) IterCb(fn IterCb) {
 }
 
 // Keys returns all keys as []string
-func (m Map) Keys() []string {
+func (m *MapOf[K, V]) Keys() []K {
 	count := m.Count()
-	ch := make(chan string, count)
-
+	ch := make(chan K, count)
 	go func() {
 		// Foreach shard.
 		wg := sync.WaitGroup{}
 		wg.Add(ShardCount)
-		for _, shard := range m {
-			go func(shard *Shared) {
+		for _, shard := range m.shards {
+			go func(shard *SharedOf[K, V]) {
 				// Foreach key, value pair.
 				shard.RLock()
 				for key := range shard.items {
@@ -304,35 +302,37 @@ func (m Map) Keys() []string {
 	}()
 
 	// Generate keys
-	keys := make([]string, 0, count)
+	keys := make([]K, 0, count)
 	for k := range ch {
 		keys = append(keys, k)
 	}
-
 	return keys
 }
 
-// MarshalJSON Reviles Map "private" variables to json marshal.
-func (m Map) MarshalJSON() ([]byte, error) {
+// MarshalJSON Reviles MapOf "private" variables to json marshal.
+func (m *MapOf[K, V]) MarshalJSON() ([]byte, error) {
 	// Create a temporary map, which will hold all item spread across shards.
-	tmp := make(map[string]interface{})
+	tmp := make(map[K]V)
 
 	// Insert items to temporary map.
 	for item := range m.IterBuffered() {
 		tmp[item.Key] = item.Val
 	}
-
 	return json.Marshal(tmp)
 }
 
-func fnv32(key string) uint32 {
-	hash := uint32(2166136261)
-	const prime32 = uint32(16777619)
-	keyLength := len(key)
-	for i := 0; i < keyLength; i++ {
-		hash *= prime32
-		hash ^= uint32(key[i])
+// UnmarshalJSON Reverse process of Marshal.
+func (m *MapOf[K, V]) UnmarshalJSON(b []byte) (err error) {
+	tmp := make(map[K]V)
+
+	// Unmarshal into a single map.
+	if err := json.Unmarshal(b, &tmp); err != nil {
+		return err
 	}
 
-	return hash
+	// foreach key,value pair in temporary map insert into our concurrent map.
+	for key, val := range tmp {
+		m.Set(key, val)
+	}
+	return nil
 }
