@@ -10,6 +10,12 @@ import (
 	"github.com/fufuok/cmap/internal/xxhash"
 )
 
+// Hashable allowed map key types constraint
+type Hashable interface {
+	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr |
+		~float32 | ~float64 | ~string | ~complex64 | ~complex128
+}
+
 // MapOf A "thread" safe map of type string:Anything.
 // To avoid lock bottlenecks this map is dived to several (ShardCount) map shards.
 type MapOf[K comparable, V any] struct {
@@ -35,12 +41,12 @@ func create[K comparable, V any](sharding func(key K) uint64) *MapOf[K, V] {
 }
 
 // NewOf Creates a new concurrent map.
-func NewOf[K comparable, V any]() *MapOf[K, V] {
-	return NewWithCustomShardingFunction[K, V](xxhash.GenHasher64[K]())
+func NewOf[K Hashable, V any]() *MapOf[K, V] {
+	return NewTypedMapOf[K, V](xxhash.GenHasher64[K]())
 }
 
-// NewWithCustomShardingFunction Creates a new concurrent map.
-func NewWithCustomShardingFunction[K comparable, V any](sharding func(key K) uint64) *MapOf[K, V] {
+// NewTypedMapOf Creates a new concurrent map.
+func NewTypedMapOf[K comparable, V any](sharding func(key K) uint64) *MapOf[K, V] {
 	return create[K, V](sharding)
 }
 
