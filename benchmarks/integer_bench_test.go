@@ -4,6 +4,7 @@
 package benchmarks
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -39,6 +40,27 @@ func BenchmarkInteger_CMAP_WarmUp(b *testing.B) {
 				m.Remove(k)
 			}, bc.readPercentage)
 		})
+	}
+}
+
+func BenchmarkInteger_CMAP_ShardCount_WarmUp(b *testing.B) {
+	for i := 32; i <= 512; i *= 2 {
+		for _, bc := range benchmarkCases {
+			b.Run(bc.name+fmt.Sprintf(" (%d)", i), func(b *testing.B) {
+				m := cmap.NewOf[int, int](i)
+				for i := 0; i < benchmarkNumEntries; i++ {
+					m.Set(i, i)
+				}
+				b.ResetTimer()
+				benchmarkMapOfIntegerKeys(b, func(k int) (int, bool) {
+					return m.Get(k)
+				}, func(k int, v int) {
+					m.Set(k, v)
+				}, func(k int) {
+					m.Remove(k)
+				}, bc.readPercentage)
+			})
+		}
 	}
 }
 

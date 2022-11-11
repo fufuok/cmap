@@ -16,43 +16,49 @@ type Hashable interface {
 		~float32 | ~float64 | ~string | ~complex64 | ~complex128
 }
 
-// MapOf A "thread" safe map of type string:Anything.
+// MapOf a "thread" safe map of type comparable:Anything.
 // To avoid lock bottlenecks this map is dived to several (ShardCount) map shards.
 type MapOf[K comparable, V any] struct {
-	shards   []*SharedOf[K, V]
-	sharding func(key K) uint64
+	shards     []*SharedOf[K, V]
+	sharding   func(key K) uint64
+	shardCount int
 }
 
-// SharedOf A "thread" safe string to anything map.
+// SharedOf a "thread" safe string to anything map.
 type SharedOf[K comparable, V any] struct {
-	items        map[K]V
-	sync.RWMutex // Read Write mutex, guards access to internal map.
+	items map[K]V
+	sync.RWMutex
 }
 
-func create[K comparable, V any](sharding func(key K) uint64) *MapOf[K, V] {
-	m := &MapOf[K, V]{
-		sharding: sharding,
-		shards:   make([]*SharedOf[K, V], ShardCount),
+func create[K comparable, V any](sharding func(key K) uint64, numShards ...int) *MapOf[K, V] {
+	sc := ShardCount
+	if len(numShards) > 0 && numShards[0] > ShardCount {
+		sc = numShards[0]
 	}
-	for i := 0; i < ShardCount; i++ {
+	m := &MapOf[K, V]{
+		shards:     make([]*SharedOf[K, V], sc),
+		sharding:   sharding,
+		shardCount: sc,
+	}
+	for i := 0; i < sc; i++ {
 		m.shards[i] = &SharedOf[K, V]{items: make(map[K]V)}
 	}
 	return m
 }
 
-// NewOf Creates a new concurrent map.
-func NewOf[K Hashable, V any]() *MapOf[K, V] {
-	return NewTypedMapOf[K, V](xxhash.GenHasher64[K]())
+// NewOf creates a new concurrent map, optionally specify the number of shards.
+func NewOf[K Hashable, V any](numShards ...int) *MapOf[K, V] {
+	return NewTypedMapOf[K, V](xxhash.GenHasher64[K](), numShards...)
 }
 
-// NewTypedMapOf Creates a new concurrent map.
-func NewTypedMapOf[K comparable, V any](sharding func(key K) uint64) *MapOf[K, V] {
-	return create[K, V](sharding)
+// NewTypedMapOf creates a new concurrent map, optionally specify the number of shards.
+func NewTypedMapOf[K comparable, V any](sharding func(key K) uint64, numShards ...int) *MapOf[K, V] {
+	return create[K, V](sharding, numShards...)
 }
 
 // GetShard returns shard under given key
 func (m *MapOf[K, V]) GetShard(key K) *SharedOf[K, V] {
-	return m.shards[uint(m.sharding(key))%uint(ShardCount)]
+	return m.shards[uint(m.sharding(key))%uint(m.shardCount)]
 }
 
 func (m *MapOf[K, V]) MSet(data map[K]V) {
@@ -64,7 +70,7 @@ func (m *MapOf[K, V]) MSet(data map[K]V) {
 	}
 }
 
-// Set Sets the given value under the specified key.
+// Set sets the given value under the specified key.
 func (m *MapOf[K, V]) Set(key K, value V) {
 	// Get map shard.
 	shard := m.GetShard(key)
@@ -73,13 +79,13 @@ func (m *MapOf[K, V]) Set(key K, value V) {
 	shard.Unlock()
 }
 
-// UpsertCbOf Callback to return new element to be inserted into the map
+// UpsertCbOf callback to return new element to be inserted into the map
 // It is called while lock is held, therefore it MUST NOT
 // try to access other keys in same map, as it can lead to deadlock since
 // Go sync.RWLock is not reentrant
 type UpsertCbOf[V any] func(exist bool, valueInMap V, newValue V) V
 
-// Upsert Insert or Update - updates existing element or inserts a new one using UpsertCbOf
+// Upsert insert or update - updates existing element or inserts a new one using UpsertCbOf
 func (m *MapOf[K, V]) Upsert(key K, value V, cb UpsertCbOf[V]) (res V) {
 	shard := m.GetShard(key)
 	shard.Lock()
@@ -90,7 +96,7 @@ func (m *MapOf[K, V]) Upsert(key K, value V, cb UpsertCbOf[V]) (res V) {
 	return res
 }
 
-// SetIfAbsent Sets the given value under the specified key if no value was associated with it.
+// SetIfAbsent sets the given value under the specified key if no value was associated with it.
 func (m *MapOf[K, V]) SetIfAbsent(key K, value V) bool {
 	// Get map shard.
 	shard := m.GetShard(key)
@@ -117,7 +123,7 @@ func (m *MapOf[K, V]) Get(key K) (V, bool) {
 // Count returns the number of elements within the map.
 func (m *MapOf[K, V]) Count() int {
 	count := 0
-	for i := 0; i < ShardCount; i++ {
+	for i := 0; i < m.shardCount; i++ {
 		shard := m.shards[i]
 		shard.RLock()
 		count += len(shard.items)
@@ -126,7 +132,7 @@ func (m *MapOf[K, V]) Count() int {
 	return count
 }
 
-// Has Looks up an item under specified key
+// Has looks up an item under specified key
 func (m *MapOf[K, V]) Has(key K) bool {
 	// Get shard
 	shard := m.GetShard(key)
@@ -182,7 +188,7 @@ func (m *MapOf[K, V]) IsEmpty() bool {
 	return m.Count() == 0
 }
 
-// TupleOf Used by the Iter & IterBuffered functions to wrap two variables together over a channel,
+// TupleOf used by the Iter & IterBuffered functions to wrap two variables together over a channel,
 type TupleOf[K comparable, V any] struct {
 	Key K
 	Val V
@@ -216,9 +222,9 @@ func snapshotOf[K comparable, V any](m *MapOf[K, V]) (chans []chan TupleOf[K, V]
 	if len(m.shards) == 0 {
 		panic(`cmap.MapOf is not initialized. Should run New() before usage.`)
 	}
-	chans = make([]chan TupleOf[K, V], ShardCount)
+	chans = make([]chan TupleOf[K, V], m.shardCount)
 	wg := sync.WaitGroup{}
-	wg.Add(ShardCount)
+	wg.Add(m.shardCount)
 	// Foreach shard.
 	for index, shard := range m.shards {
 		go func(index int, shard *SharedOf[K, V]) {
@@ -265,7 +271,7 @@ func (m *MapOf[K, V]) Items() map[K]V {
 	return tmp
 }
 
-// IterCbOf Iterator callbacalled for every key,value found in
+// IterCbOf iterator callbacalled for every key,value found in
 // maps. RLock is held for all calls for a given shard
 // therefore callback sess consistent view of a shard,
 // but not across the shards
@@ -291,7 +297,7 @@ func (m *MapOf[K, V]) Keys() []K {
 	go func() {
 		// Foreach shard.
 		wg := sync.WaitGroup{}
-		wg.Add(ShardCount)
+		wg.Add(m.shardCount)
 		for _, shard := range m.shards {
 			go func(shard *SharedOf[K, V]) {
 				// Foreach key, value pair.
@@ -315,7 +321,7 @@ func (m *MapOf[K, V]) Keys() []K {
 	return keys
 }
 
-// MarshalJSON Reviles MapOf "private" variables to json marshal.
+// MarshalJSON reviles MapOf "private" variables to json marshal.
 func (m *MapOf[K, V]) MarshalJSON() ([]byte, error) {
 	// Create a temporary map, which will hold all item spread across shards.
 	tmp := make(map[K]V)
@@ -327,7 +333,7 @@ func (m *MapOf[K, V]) MarshalJSON() ([]byte, error) {
 	return json.Marshal(tmp)
 }
 
-// UnmarshalJSON Reverse process of Marshal.
+// UnmarshalJSON reverse process of Marshal.
 func (m *MapOf[K, V]) UnmarshalJSON(b []byte) (err error) {
 	tmp := make(map[K]V)
 

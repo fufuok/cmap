@@ -7,11 +7,11 @@ import (
 
 var ShardCount = 32
 
-// Map A "thread" safe map of type string:Anything.
+// Map a "thread" safe map of type string:Anything.
 // To avoid lock bottlenecks this map is dived to several (ShardCount) map shards.
 type Map []*Shared
 
-// Shared A "thread" safe string to anything map.
+// Shared a "thread" safe string to anything map.
 type Shared struct {
 	items map[string]interface{}
 
@@ -19,7 +19,7 @@ type Shared struct {
 	sync.RWMutex
 }
 
-// New Creates a new concurrent map.
+// New creates a new concurrent map.
 func New() Map {
 	m := make(Map, ShardCount)
 	for i := 0; i < ShardCount; i++ {
@@ -43,7 +43,7 @@ func (m Map) MSet(data map[string]interface{}) {
 	}
 }
 
-// Set Sets the given value under the specified key.
+// Set sets the given value under the specified key.
 func (m Map) Set(key string, value interface{}) {
 	// Get map shard.
 	shard := m.GetShard(key)
@@ -52,13 +52,13 @@ func (m Map) Set(key string, value interface{}) {
 	shard.Unlock()
 }
 
-// UpsertCb Callback to return new element to be inserted into the map
+// UpsertCb callback to return new element to be inserted into the map
 // It is called while lock is held, therefore it MUST NOT
 // try to access other keys in same map, as it can lead to deadlock since
 // Go sync.RWLock is not reentrant
 type UpsertCb func(exist bool, valueInMap interface{}, newValue interface{}) interface{}
 
-// Upsert Insert or Update - updates existing element or inserts a new one using UpsertCb
+// Upsert insert or update - updates existing element or inserts a new one using UpsertCb
 func (m Map) Upsert(key string, value interface{}, cb UpsertCb) (res interface{}) {
 	shard := m.GetShard(key)
 	shard.Lock()
@@ -70,7 +70,7 @@ func (m Map) Upsert(key string, value interface{}, cb UpsertCb) (res interface{}
 	return res
 }
 
-// SetIfAbsent Sets the given value under the specified key if no value was associated with it.
+// SetIfAbsent sets the given value under the specified key if no value was associated with it.
 func (m Map) SetIfAbsent(key string, value interface{}) bool {
 	// Get map shard.
 	shard := m.GetShard(key)
@@ -96,7 +96,7 @@ func (m Map) Get(key string) (interface{}, bool) {
 	return val, ok
 }
 
-// GetValue Get retrieves an element from map under given key.
+// GetValue get retrieves an element from map under given key.
 func (m Map) GetValue(key string) (val interface{}) {
 	val, _ = m.Get(key)
 	return
@@ -115,7 +115,7 @@ func (m Map) Count() int {
 	return count
 }
 
-// Has Looks up an item under specified key
+// Has looks up an item under specified key
 func (m Map) Has(key string) bool {
 	// Get shard
 	shard := m.GetShard(key)
@@ -174,7 +174,7 @@ func (m Map) IsEmpty() bool {
 	return m.Count() == 0
 }
 
-// Tuple Used by the Iter & IterBuffered functions to wrap two variables together over a channel,
+// Tuple used by the Iter & IterBuffered functions to wrap two variables together over a channel,
 type Tuple struct {
 	Key string
 	Val interface{}
@@ -260,13 +260,13 @@ func (m Map) Items() map[string]interface{} {
 	return tmp
 }
 
-// IterCb Iterator callback,called for every key,value found in
+// IterCb iterator callback,called for every key,value found in
 // maps. RLock is held for all calls for a given shard
 // therefore callback sess consistent view of a shard,
 // but not across the shards
 type IterCb func(key string, v interface{})
 
-// IterCb Callback based iterator, cheapest way to read
+// IterCb callback based iterator, cheapest way to read
 // all elements in a map.
 func (m Map) IterCb(fn IterCb) {
 	for idx := range m {
@@ -312,7 +312,7 @@ func (m Map) Keys() []string {
 	return keys
 }
 
-// MarshalJSON Reviles Map "private" variables to json marshal.
+// MarshalJSON reviles Map "private" variables to json marshal.
 func (m Map) MarshalJSON() ([]byte, error) {
 	// Create a temporary map, which will hold all item spread across shards.
 	tmp := make(map[string]interface{})

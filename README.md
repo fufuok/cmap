@@ -1,4 +1,4 @@
-# Concurrent Map
+# 🌈 Concurrent Map
 
 sync.Map with better read and write performance (supports any type of the key)
 
@@ -6,11 +6,19 @@ sync.Map with better read and write performance (supports any type of the key)
 
 > For cache, you can choose: [Cache/CacheOf and Map/MapOf](https://github.com/fufuok/cache)
 
-## Changelog
+## ✨ Changelog
 
 - Unified initialization method: `cmap.NewOf[K, V]()`, Used `xxhash`, thanks.
+- For generics: Optionally specify the number of shards to improve performance. 
+  - `func NewOf[K Hashable, V any](numShards ...int) *MapOf[K, V]`
 - Supports both generic and non-generic types.
 - Add benchmarks for commonly used Map packages, See: [🤖 Benchmarks](benchmarks)
+
+## 🔖 Tips
+
+ShardCount can also be specified globally, but it must be executed before all Maps are initialized and cannot be modified.
+
+`cmap.ShardCount = 128`
 
 ## ⚙️ Installation
 
@@ -73,6 +81,8 @@ import (
 )
 
 func main() {
+	// Specifies the number of shards.
+	// m := cmap.NewOf[int, int](128)
 	m := cmap.NewOf[int, int]()
 	m.Set(1, 1)
 	v := m.Upsert(1, 2, func(exist bool, valueInMap int, newValue int) int {
