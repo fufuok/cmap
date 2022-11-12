@@ -43,10 +43,10 @@ func BenchmarkInteger_CMAP_WarmUp(b *testing.B) {
 	}
 }
 
-func BenchmarkInteger_CMAP_ShardCount_WarmUp(b *testing.B) {
+func BenchmarkInteger_CMAP_NumShards_WarmUp(b *testing.B) {
 	for i := 32; i <= 512; i *= 2 {
 		for _, bc := range benchmarkCases {
-			b.Run(bc.name+fmt.Sprintf(" (%d)", i), func(b *testing.B) {
+			b.Run(bc.name+fmt.Sprintf("_%d", i), func(b *testing.B) {
 				m := cmap.NewOf[int, int](i)
 				for i := 0; i < benchmarkNumEntries; i++ {
 					m.Set(i, i)
