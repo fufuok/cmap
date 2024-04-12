@@ -153,6 +153,8 @@ var (
 	}
 )
 
+// GenHasher
+// nolint: funlen, exhaustive, cyclop
 func GenHasher[K comparable]() func(K) uintptr {
 	var hasher func(K) uintptr
 	var key K

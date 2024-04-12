@@ -296,8 +296,8 @@ func benchmarkMap(
 	loadFn func(k string) (int, bool),
 	storeFn func(k string, v int),
 	deleteFn func(k string),
-	readPercentage int) {
-
+	readPercentage int,
+) {
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		r := rand.New(rand.NewSource(time.Now().UnixNano()))
