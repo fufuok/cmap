@@ -244,6 +244,14 @@ func Test_MapOf_Count(t *testing.T) {
 	if m.Count() != 100 {
 		t.Error("Expecting 100 element within map.")
 	}
+
+	if m.GetValue("99").name != "99" {
+		t.Error("Wrong value was provided to the value")
+	}
+
+	if m.GetValue("100").name != "" {
+		t.Error("Wrong value was provided to the value")
+	}
 }
 
 func Test_MapOf_IsEmpty(t *testing.T) {

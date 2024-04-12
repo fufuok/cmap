@@ -120,6 +120,12 @@ func (m *MapOf[K, V]) Get(key K) (V, bool) {
 	return val, ok
 }
 
+// GetValue get retrieves an element from map under given key.
+func (m *MapOf[K, V]) GetValue(key K) (val V) {
+	val, _ = m.Get(key)
+	return
+}
+
 // Count returns the number of elements within the map.
 func (m *MapOf[K, V]) Count() int {
 	count := 0
